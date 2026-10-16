@@ -1,0 +1,15 @@
+# Line endings: LF in the repository and on checkout, on every platform,
+# so the shell scripts run under bash (also when cloned on Windows).
+* text=auto eol=lf
+*.sh text eol=lf
+# The per-query results are stored exactly as the evaluation wrote them.
+*.csv -text
+# Binary files.
+*.pth binary
+*.pt binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tif binary
+*.tiff binary
+*.zip binary

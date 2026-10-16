@@ -1,0 +1,52 @@
+# Table 4, BullingerDB block (Sec. 5.4): trained on the corpus, Stage 1.
+#
+# attmask: options of the reference trainer; teacher_train.py passes every
+# other published option at its reference value. probe: monitoring of the
+# online network (key "student") on the HisIR19 validation set at a
+# reduced geometry (image_size 1024, overlap 0.5, no PCA), every 2 epochs.
+# The probe is monitoring only; the reported checkpoint is
+# last_teacher.pth, converted from the trainer's
+# final checkpoint. The run is stopped (exit code 3) when the probe mAP
+# stays below abort_below for abort_persist consecutive probes from epoch
+# abort_after on, and (exit code 4) when the trainer's logged class loss is
+# flat over 200 log lines (pin_abort, default true). abort_below: 0 and
+# pin_abort: false disable these divergence stops. run_scenario1.sh sets
+# the run and checkpoint directories (runs/scenario1/ssl_<RUN_TAG>,
+# checkpoints/scenario1/ssl_<RUN_TAG>).
+# bf16: true makes teacher_train.py run the trainer with --use_fp16 false
+# --use_bf16 true (tools/raven_bf16.py); the other Stage-1 configs train
+# in float16.
+attmask:
+  clone: "third_party/reference_patched"
+  data_path: "data/bullinger_teacher_bin"
+  epochs: 20
+  lr: 0.001            # reference trainer scaling: peak = lr x batch/256 = 5e-4
+  batch_size: 128
+  overlap: 0.875
+  warmup_epochs: 2
+  augmentation: "morph"
+  freeze_last_layer: 1
+  master_port: 29517
+  bf16: true
+  extra_args: ["--page_supcon_weight", "0.5",
+               "--supcon_temperature", "0.1",
+               "--pages_per_batch", "16",
+               "--windows_per_page", "8",
+               "--max_positive_iou", "0.0"]
+
+probe:
+  every: 2
+  keys: ["student", "teacher"]
+  select_key: "student"
+  val_dir: "data/wi_comp_19_validation"
+  eval_config: "configs/eval_vit_s16.yaml"
+  binarisation: "input"
+  ink_threshold: 0.04
+  image_size: 1024
+  overlap: 0.5
+  vlad_clusters: 100
+  embed_workers: 4
+  gpu: 0
+  abort_below: 0.45
+  abort_after: 1
+  abort_persist: 2

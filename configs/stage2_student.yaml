@@ -1,0 +1,89 @@
+# Stage 2: the final student (token regression + relational term).
+#
+# Notes on the keys below (distill_train.py):
+# * run_scenario1.sh sets the run and checkpoint directories
+#   (runs/scenario1/ssl_<RUN_TAG>, checkpoints/scenario1/ssl_<RUN_TAG>);
+#   training.run_dir and training.checkpoint_dir are then not used.
+# * The reported checkpoint is last_distill.pth after the last epoch. The
+#   validation probe (training.val_probe, on training.val_dir at a reduced
+#   geometry: image_size 1024, overlap 0.5, no PCA) is monitoring only.
+# * teacher.sauvola.morph_open_kernel: keep it explicit; when the key is
+#   absent the teacher view gets a 3x3 opening.
+# * tiling: tile_size comes from dataset.tile_size; overlap,
+#   max_padding_pct, min_stroke_pct and patch_size are read from this
+#   block. bg_percentile, bg_margin, canny_low, canny_high and
+#   binary_ink_threshold are not read: the trainer uses its built-in
+#   values, equal to the ones listed (binary input is not used here).
+# * Training tile keep-filter as implemented: 224-pixel tiles on a
+#   112-pixel grid from the top-left corner of the page at native
+#   resolution (dataset.image_size: -1); tiles crossing the right or
+#   bottom border are not used. A tile is kept when its content (the
+#   pixels darker than the tile's 95th-percentile grey level minus 10)
+#   spans a bounding box covering more than 40% of the tile (it is rejected
+#   when the uncovered fraction reaches max_padding_pct, 0.60) and the
+#   Canny edge density inside that box (page-level CLAHE with clip limit 2
+#   on an 8x8 grid, 3x3 median, Canny 100/200) is at least min_stroke_pct
+#   (0.04).
+aux:
+  rkd:
+    weight: 5.0
+
+model:
+  name: "dinov3_vitb16"
+  pretrained: true
+  checkpoint: "checkpoints/dinov3/dinov3_vitb16_pretrain_lvd1689m.pth"
+  input_norm:
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]
+
+teacher:
+  model: "extvit:vit_small_patch16_224"
+  checkpoint: "checkpoints/scenario1/ssl_teacher/last_teacher.pth"
+  sauvola:
+    window: 51
+    k: 0.2
+    morph_open_kernel: 0
+  loss_weights:
+    patch: 1.0
+    cls: 0.5
+
+training:
+  epochs: 5
+  batch_size: 96
+  num_workers: 12
+  lr: 1.0e-4
+  layer_decay: 0.75
+  weight_decay: 0.04
+  warmup_epochs: 1
+  seed: 42
+  device: "cuda:0"
+  val_dir: "data/wi_comp_19_validation"
+  checkpoint_dir: "checkpoints/stage2_student"
+  run_dir: "runs/stage2_student"
+  val_probe:
+    mode: "loo_vlad"
+    eval_config: "configs/eval_student.yaml"
+    image_size: 1024
+    overlap: 0.5
+    ink_threshold: 0.04
+    vlad_clusters: 100
+    embed_workers: 4
+    every: 1
+
+dataset:
+  root_dir: "data/wi_icdar_17_train_colour"
+  image_size: -1
+  tile_size: 224
+  max_image_size: 0
+
+tiling:
+  tile_size: 224
+  patch_size: 16
+  overlap: 0.5
+  max_padding_pct: 0.60
+  min_stroke_pct: 0.04
+  bg_percentile: 95
+  bg_margin: 10
+  canny_low: 100
+  canny_high: 200
+  binary_ink_threshold: 0.05

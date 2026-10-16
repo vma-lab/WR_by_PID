@@ -1,0 +1,26 @@
+# Core deep-learning stack
+torch>=2.0
+torchvision>=0.15
+timm>=0.9
+omegaconf>=2.3
+PyYAML>=6.0
+
+# Data processing & utilities
+numpy>=1.23
+pandas>=1.5
+pillow>=9.5
+opencv-python>=4.7
+tqdm>=4.65
+scikit-learn>=1.2
+joblib>=1.2
+tensorboard>=2.12
+# tensorboard imports pkg_resources, which setuptools 81+ removed.
+setuptools<81
+
+# Required by the reference trainer (Stage 1, third_party/setup_reference.sh)
+kornia>=0.6
+petname>=2.6
+
+
+# Optional: SALAD acceleration (install manually if desired)
+# pip install geomloss>=0.2.6 pykeops>=2.1
